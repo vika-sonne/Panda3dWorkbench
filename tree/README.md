@@ -8,7 +8,7 @@ python3 P3dTree.py
 
 Example screen grab:
 
-(media/tree.gif)
+![](media/tree.gif)
 
 History
 -------
