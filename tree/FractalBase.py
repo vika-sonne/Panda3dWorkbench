@@ -46,7 +46,7 @@ class FractalBase:
 		self.ends: List[self.BranchProps] = []
 
 	@classmethod
-	def iter_ends(cls, root: BranchProps) -> Iterator[Tuple[BranchProps, float]]:
+	def iter_ends(cls, root: BranchProps) -> Iterator[BranchProps]:
 		# print(f'iter_ends: {root}')
 		if not root.branches:
 			# print(f'iter_ends yield: {root}')

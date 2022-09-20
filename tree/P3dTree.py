@@ -33,10 +33,11 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
 # python imports
-from turtle import clear
 from typing import Iterable, Iterator, Optional, List, Tuple, NamedTuple, Callable
 import math
 import random
+from os import path
+from sys import path as search_paths
 
 # Panda3D imports
 from panda3d.core import (Mat4, Vec2, Vec3, Vec4, Point3, Quat, Geom, GeomNode, Texture, TextureStage,
@@ -47,6 +48,9 @@ from direct.gui.OnscreenText import OnscreenText
 
 # Workbench imports
 from FractalBase import FractalBase
+module_path = path.dirname(path.abspath(__file__))
+search_paths.insert(0, path.abspath(path.join(module_path, '../lib')))
+from TextureProps import TextureProps
 
 
 class FractalTree(NodePath, FractalBase):
@@ -223,25 +227,6 @@ class FractalTree(NodePath, FractalBase):
 		return 3
 
 
-class TextureProps(NamedTuple):
-	path: str
-	scale: Vec2 = Vec2(1, 1)
-	minfilter: Optional[int] = None # Texture.FTLinearMipmapLinear
-	wrap_u: Optional[int] = None # Texture.WM_mirror
-	wrap_v: Optional[int] = None # Texture.WM_mirror
-	anisotropic_degree: Optional[float] = None # power of 2
-
-	def set_texture_props(self, texture: Texture):
-		if self.minfilter:
-			texture.set_minfilter(self.minfilter)
-		if self.wrap_u is not None:
-			texture.set_wrap_u(self.wrap_u)
-		if self.wrap_v is not None:
-			texture.set_wrap_v(self.wrap_v)
-		if self.anisotropic_degree is not None:
-			texture.set_anisotropic_degree(self.anisotropic_degree)
-
-
 class DefaultTree(FractalTree):
 
 	BARK_TEXTURE = TextureProps('models/barkTexture.jpg', Vec2(2, .25), Texture.FTLinearMipmapLinear, Texture.WM_mirror, None, 16)
@@ -270,6 +255,7 @@ if __name__ == "__main__":
 	from direct.showbase.ShowBase import ShowBase
 	from direct.gui.DirectRadioButton import DirectRadioButton
 	from os import uname
+	from RadioButtons import RadioButtons
 
 	global demo_running
 	base, demo_running = ShowBase(), True
@@ -357,7 +343,7 @@ if __name__ == "__main__":
 
 		base.cam.set_pos(-15, -250, 10)
 		base.cam.set_hpr(0, -5, 0)
-		base.setSceneGraphAnalyzerMeter(True)
+		base.set_scene_graph_analyzer_meter(True)
 		base.set_background_color(0.3, 0.53, 0.93, 1)
 		light = AmbientLight('ambientLight')
 		ambient_light_np = base.render.attach_new_node(light)
@@ -422,75 +408,13 @@ if __name__ == "__main__":
 		base.taskMgr.add(grow, "growTask") # start grow task
 
 
-	class RadioButtons:
-
-		def __init__(self, variants: Iterable[Tuple[str, Callable]]) -> None:
-			self.ignore_selection = True
-			self.variants = variants
-			scale, radio_x, radio_y, radio_y_delta = 0.05, -0.5, 0.5, 0.2
-			self.buttons = list(
-				DirectRadioButton(text=x[0], scale=scale,
-					pos=(radio_x, 0, radio_y - i * radio_y_delta), command=self.selected_changed)
-				for i, x in enumerate(self.variants)
-			)
-			for btn in self.buttons:
-				btn.setOthers(self.buttons)
-			base.accept('arrow_up', self.btn_up)
-			base.accept('arrow_down', self.btn_down)
-			base.accept('enter', self.btn_enter)
-			self.buttons[0].check()
-			self.ignore_selection = False
-
-		def cleanup(self):
-			base.ignore('arrow_up')
-			base.ignore('arrow_down')
-			base.ignore('enter')
-			for btn in self.buttons:
-				btn.destroy()
-			self.buttons = None
-
-		def get_selected_index(self) -> int:
-			try:
-				return next(filter(lambda x: x[1]['indicatorValue'] == 1, enumerate(self.buttons)))[0]
-			except:
-				return -1
-
-		def selected_changed(self):
-			# bk_text = 'CurrentValue : %s' % (status)
-			selected_index = self.get_selected_index()
-			if selected_index >= 0 and not self.ignore_selection:
-				self.variant_selected(selected_index)
-
-		def btn_up(self):
-			self.ignore_selection = True
-			selected_index = self.get_selected_index()
-			if selected_index > 0:
-				self.buttons[selected_index - 1].check()
-			self.ignore_selection = False
-
-		def btn_down(self):
-			self.ignore_selection = True
-			selected_index = self.get_selected_index()
-			if selected_index < len(self.buttons) - 1:
-				self.buttons[selected_index + 1].check()
-			self.ignore_selection = False
-
-		def btn_enter(self):
-			self.selected_changed()
-
-		def variant_selected(self, variant: int):
-			print(f'variant_selected: {variant} {self.variants[variant][0]}')
-			self.cleanup()
-			self.variants[variant][1]()
-
-
 	def show_menu():
 		global demo_menu
 		demo_text = list((
 			OnscreenText(' Panda3D workbench: tree ', scale=.05, pos=(0, .95), fg=(.75, .75, .55, .75), bg=(.5, .5, .5, .5), align=TextNode.ACenter),
 			OnscreenText('Press <Esc> to show menu, use arrows keys and <Enter> or mouse', scale=.04, fg=(.75, .75, .55, .75), pos=(0, .9), align=TextNode.ACenter),
 		))
-		demo_menu = RadioButtons((
+		demo_menu = RadioButtons(base, (
 			('Forest', forest),
 			('Grow anomation', grow_animation),
 			('Tree', tree),
@@ -502,10 +426,10 @@ if __name__ == "__main__":
 		try:
 			if demo_menu.get_selected_index() < 0:
 				demo_menu, demo_running = None, False
-				base.render.getChildren().detach()
-				base.camera.reparentTo(base.render)
+				base.render.get_children().detach()
+				base.camera.reparent_to(base.render)
 				base.set_background_color(0.5, 0.5, 0.5, 1)
-				base.setSceneGraphAnalyzerMeter(False)
+				base.set_scene_graph_analyzer_meter(False)
 				show_menu()
 		except:
 			pass
